@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: ./docker/containers/python/Dockerfile
+      args:
+        USER_ID: "$USER_ID"
+        GROUP_ID: "$GROUP_ID"
+        PROJECT_PREFIX: "$PROJECT_PREFIX"
+      target: dev
+    restart: unless-stopped
+    container_name: ${PROJECT_PREFIX}_web
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - ${HTTP_PORT}:${HTTP_PORT}
+    env_file:
+      - .env
+    depends_on:
+      pgsql:
+        condition: service_healthy
+
+  pgsql:
+    image: postgres:16.2-alpine
+    container_name: ${PROJECT_PREFIX}_pgsql
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: pg_isready -U ${DB_USER} -d ${DB_NAME}
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+volumes:
+  db-data:
